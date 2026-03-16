@@ -22,10 +22,12 @@ erDiagram
 
     USER {
         uuid id PK
-        string username "Mandatorio"
-        string email "Mandatorio, Único"
-        string password_hash "Mandatorio"
-        string pin "Opcional (Mandatorio p/ Gerentes)"
+        string name "Mandatorio"
+        string first_name "Mandatorio (Apellido Paterno)"
+        string second_name "Opcional (Apellido Materno)"
+        string email "Mandatorio, Único (Recuperación/Admin)"
+        string password_hash "Mandatorio (Solo para Dashboard)"
+        string pin_hash "Mandatorio, Único (Login POS - 6 dígitos)"
         uuid role_id FK "Mandatorio"
         datetime created_at "Mandatorio"
     }
@@ -105,8 +107,10 @@ erDiagram
 - **Categorías y Productos**: El nombre y precio son siempre obligatorios. La descripción de la categoría es opcional para dar flexibilidad.
 - **Modificadores**: El precio extra es obligatorio pero puede ser `0.0` por defecto.
 
-### 2. Seguridad
-- **PIN**: Es opcional a nivel de base de datos para permitir usuarios que no requieren autorizar acciones críticas, pero la lógica de negocio lo exigirá para roles tipo `Gerente`.
+### 2. Seguridad y Autenticación
+- **PIN (6 dígitos)**: Se utiliza como identificador principal para el login rápido en la terminal POS (Tablets). Se define un PIN de 6 dígitos para permitir hasta 1,000,000 de combinaciones únicas, garantizando escalabilidad y mayor seguridad que un PIN de 4 dígitos.
+- **pin_hash**: Siguiendo la Arquitectura Limpia, el PIN nunca se guarda en texto plano; se almacena su hash para protección de datos.
+- **Dual Authentication**: El `email` y `password_hash` se reservan para el acceso administrativo al Dashboard Web, donde se requiere una seguridad más robusta.
 
 ### 3. Operaciones
 - **Notas en ítems**: Totalmente opcional, usado para instrucciones especiales a cocina (ej: "sin cebolla").
