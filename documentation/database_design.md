@@ -14,7 +14,8 @@ erDiagram
     PRODUCT ||--o{ MODIFIER : "tiene"
     PRODUCT ||--o{ ORDER_ITEM : "se incluye en"
     
-    TABLE ||--o{ ORDER : "pertenece a"
+    TABLE ||--o{ ORDER_TABLE : "asociada a"
+    ORDER ||--o{ ORDER_TABLE : "posee"
     
     ORDER ||--o{ ORDER_ITEM : "contiene"
     ORDER_ITEM ||--o{ ORDER_ITEM_MODIFIER : "tiene"
@@ -67,7 +68,6 @@ erDiagram
 
     ORDER {
         uuid id PK
-        uuid table_id FK "Mandatorio"
         uuid user_id FK "Mandatorio (Mesero)"
         float subtotal "Mandatorio"
         float taxes "Mandatorio"
@@ -75,6 +75,12 @@ erDiagram
         float total_amount "Mandatorio"
         string status "Mandatorio (Abierta, Pagada, Cancelada)"
         datetime created_at "Mandatorio"
+    }
+
+    ORDER_TABLE {
+        uuid order_id FK "Mandatorio"
+        uuid table_id FK "Mandatorio"
+        datetime joined_at "Mandatorio"
     }
 
     ORDER_ITEM {
