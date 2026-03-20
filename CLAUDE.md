@@ -21,21 +21,34 @@ Enforce SOLID principles throughout. Dependency injection flows inward.
 
 ## Database Design
 
-The relational schema (see `documentation/database_design.md`) has 10 entities with UUIDs as PKs:
+The relational schema (see `documentation/database_design.md`) has 12 entities. All column types use PostgreSQL nomenclature.
 
-- **Auth/Users:** `USER` (dual auth: 6-digit PIN for POS terminals, email+password for web dashboard; `password_hash` is nullable for PIN-only users), `ROLE` (Admin/Manager/Waiter)
-- **Catalog:** `CATEGORY` (optional sort_order), `PRODUCT` (base_price, is_available, optional sort_order), `MODIFIER` (extra_price, default 0.0)
-- **Operations:** `RESTAURANT_TABLE` (status: Libre/Ocupada/Reservada), `ORDER` (subtotal/taxes/tip/total_amount, status: Abierta/Pagada/Cancelada, payment_method nullable, updated_at), `ORDER_TABLE` (join table), `ORDER_ITEM` (copies unit_price at time of order), `ORDER_ITEM_MODIFIER` (copies applied_extra_price at time of order)
-- **Audit:** `AUDIT_LOG` (user_id, action, optional JSON details, timestamp)
+- **Branches:** `BRANCH` (name, address, phone, is_active) — supports multi-branch chains
+- **Auth/Users:** `USER` (dual auth: 6-digit PIN for POS terminals, email+password for web dashboard; `password_hash` and `email` are nullable for PIN-only users; `is_active` for soft delete; optional `branch_id FK`), `ROLE` (Admin/Manager/Waiter)
+- **Catalog:** `CATEGORY` (optional sort_order), `PRODUCT` (base_price as NUMERIC(12,4), is_available, optional sort_order, optional tax_rate_id FK), `MODIFIER` (extra_price NUMERIC(12,4), default 0.0)
+- **Tax:** `TAX_RATE` (name, rate NUMERIC(5,4) 0.0–1.0, is_default, is_active) — uniqueness of is_default=True enforced by partial unique index
+- **Operations:** `RESTAURANT_TABLE` (branch_id FK NOT NULL, status: FREE/OCCUPIED/RESERVED), `ORDER` (subtotal/taxes/tip/discount/total_amount as NUMERIC(12,4), status: OPEN/PAID/CANCELLED, payment_method nullable, updated_at), `ORDER_TABLE` (join table, PK composite on order_id+table_id), `ORDER_ITEM` (copies unit_price and applied_tax_rate at time of order; status for KDS: PENDING/IN_PREPARATION/READY/DELIVERED/CANCELLED), `ORDER_ITEM_MODIFIER` (copies applied_extra_price at time of order)
+- **Config:** `SYSTEM_CONFIG` (key VARCHAR(100) PK, value TEXT) — business settings: suggested tips, billing info
+- **Audit:** `AUDIT_LOG` (user_id, action, optional JSONB details, timestamp)
 
 Key design decisions:
-- PINs and passwords are hashed, never stored in plaintext
-- `password_hash` is nullable — PIN-only users (e.g. waiters) do not need a password
-- `unit_price` on `ORDER_ITEM` snapshots the price at order time (not a FK to current price)
+- PINs and passwords are hashed with bcrypt (`CHAR(60)`), never stored in plaintext
+- `password_hash` and `email` are nullable — PIN-only users (e.g. waiters) need neither
+- `is_active` on `USER` enables soft delete without breaking FK references in `ORDER` / `AUDIT_LOG`
+- Monetary fields use `NUMERIC(12,4)`, tax rates use `NUMERIC(5,4)` — never `FLOAT` (floating-point precision errors are unacceptable for financial data)
+- `unit_price` and `applied_tax_rate` on `ORDER_ITEM` snapshot values at order time (not FKs to current catalog)
 - `applied_extra_price` on `ORDER_ITEM_MODIFIER` snapshots the modifier price at order time
+- Tax rate resolution order: product's explicit `tax_rate_id` → fallback to `TAX_RATE` with `is_default=True`
+- `ORDER.total_amount` = `subtotal + taxes + tip - discount`
+- `ORDER.taxes` = sum of `(unit_price × quantity × applied_tax_rate)` across all ORDER_ITEMs
+- `ORDER.discount` stores the result of `DISCOUNT_APPLIED` audit events
+- `ORDER_TABLE` has composite PK `(order_id, table_id)` — no separate UUID needed
+- `AUDIT_LOG.details` is `JSONB` (binary, indexable, queryable via `details->>'field'`)
 - `RESTAURANT_TABLE` avoids SQL reserved keyword `TABLE`
+- `RESTAURANT_TABLE.branch_id` is NOT NULL — every table belongs to a branch
 - User name fields use `given_name`, `paternal_surname`, `maternal_surname` for clarity
-- `details` on `AUDIT_LOG` stores complex changes as JSON
+- UUIDs generated in Python (`uuid.uuid4()`), not by PostgreSQL — required by Clean Architecture (entity ID known before INSERT)
+- `TAX_RATE.is_default` uniqueness enforced by: `CREATE UNIQUE INDEX ON tax_rate (is_default) WHERE is_default = TRUE`
 
 ## Development Setup
 
