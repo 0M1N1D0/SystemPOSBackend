@@ -1,0 +1,6 @@
+sucursal,mesa,capacidad,estado
+Sucursal Centro Histórico,Mesa 1,4,FREE
+Sucursal Centro Histórico,Mesa 2,4,OCCUPIED
+Sucursal Centro Histórico,Mesa 3,6,FREE
+Sucursal Coyoacán,Mesa 1,4,FREE
+Sucursal Coyoacán,Mesa 2,2,RESERVED

@@ -1,0 +1,7 @@
+sucursal,mesa,estado_orden,producto,cantidad,precio_unitario,subtotal_item,modificadores,estado_item,notas_especiales
+Sucursal Centro Histórico,Mesa 1,PAID,Agua Mineral Peñafiel 600 ml,3,22,66.0,,DELIVERED,
+Sucursal Centro Histórico,Mesa 1,PAID,Quesadilla de Huitlacoche,1,75,75.0,Agregar crema y queso,DELIVERED,
+Sucursal Centro Histórico,Mesa 1,PAID,Sope de Frijoles con Chorizo,2,65,130.0,,DELIVERED,
+Sucursal Centro Histórico,Mesa 2,OPEN,Refresco Coca-Cola 355 ml,3,28,84.0,,PENDING,
+Sucursal Centro Histórico,Mesa 2,OPEN,Tacos de Canasta (3 pzas),2,85,170.0,Sin cebolla | Extra salsa verde,PENDING,"Un taco de frijol, uno de papa"
+Sucursal Coyoacán,Mesa 1,CANCELLED,Enchiladas Verdes con Pollo,2,120,240.0,,CANCELLED,Sin crema

@@ -8,9 +8,11 @@ Este documento presenta el modelo relacional propuesto para el backend del siste
 erDiagram
     BRANCH ||--o{ RESTAURANT_TABLE : "tiene"
     BRANCH |o--o{ USER : "pertenece a"
+    BRANCH ||--o{ RESERVATION : "agrupa"
 
     USER ||--o{ ORDER : "toma"
     USER ||--o{ AUDIT_LOG : "genera"
+    USER ||--o{ RESERVATION : "crea"
     ROLE ||--o{ USER : "define"
 
     CATEGORY ||--o{ PRODUCT : "contiene"
@@ -21,9 +23,14 @@ erDiagram
     RESTAURANT_TABLE ||--o{ ORDER_TABLE : "asociada a"
     ORDER ||--o{ ORDER_TABLE : "posee"
 
+    RESTAURANT_TABLE ||--o{ RESERVATION_TABLE : "asociada a"
+    RESERVATION ||--o{ RESERVATION_TABLE : "reserva"
+
     ORDER ||--o{ ORDER_ITEM : "contiene"
     ORDER_ITEM ||--o{ ORDER_ITEM_MODIFIER : "tiene"
     MODIFIER ||--o{ ORDER_ITEM_MODIFIER : "aplicado en"
+
+    RESERVATION |o--o| ORDER : "origina"
 
     BRANCH {
         uuid id PK
@@ -143,6 +150,27 @@ erDiagram
         TEXT value "Mandatorio"
         TEXT description "Opcional"
     }
+
+    RESERVATION {
+        uuid id PK
+        uuid branch_id FK "Mandatorio (denormalizado para queries por sucursal)"
+        uuid created_by_user_id FK "Mandatorio"
+        uuid order_id FK "Opcional (se enlaza al sentar al comensal)"
+        VARCHAR_150 guest_name "Mandatorio"
+        VARCHAR_20 guest_phone "Opcional"
+        integer party_size "Mandatorio"
+        datetime scheduled_at "Mandatorio"
+        integer duration_minutes "Mandatorio, Default: 90"
+        VARCHAR_50 status "Mandatorio, Default: CONFIRMED"
+        TEXT notes "Opcional"
+        datetime created_at "Mandatorio"
+        datetime updated_at "Mandatorio"
+    }
+
+    RESERVATION_TABLE {
+        uuid reservation_id FK "PK compuesta + Mandatorio"
+        uuid table_id FK "PK compuesta + Mandatorio"
+    }
 ```
 
 ## Descripción de Módulos (Detalle de Obligatoriedad)
@@ -195,6 +223,26 @@ erDiagram
 | `business_name` | `Restaurante El Sabor` | Nombre del negocio para facturas |
 | `business_rfc` | `REST123456ABC` | RFC para facturación |
 | `business_address` | `Calle Morelos 42, CDMX` | Dirección fiscal |
+| `reservation_upcoming_threshold_minutes` | `30` | Minutos antes del horario en que la mesa cambia a `RESERVED` |
+
+### 7. Gestión de Reservaciones (`RESERVATION` + `RESERVATION_TABLE`)
+- `RESERVATION` almacena el horario, datos del comensal y ciclo de vida de cada reservación.
+- `RESERVATION_TABLE` es la tabla join (PK compuesta `reservation_id + table_id`) que permite asignar **múltiples mesas unidas** a una sola reservación, siguiendo el mismo patrón que `ORDER_TABLE`.
+- Una mesa puede tener múltiples reservaciones futuras `CONFIRMED` en franjas distintas — el sistema soporta reservaciones a las 13:00 y a las 15:30 para la misma mesa el mismo día.
+- `branch_id` en `RESERVATION` está denormalizado (también alcanzable via `reservation_table → restaurant_table`) para consultas eficientes del tipo "¿qué mesas tienen reservación hoy en esta sucursal?" sin JOINs extra.
+- `order_id` es nullable: se enlaza cuando el comensal llega y el mesero abre la orden (`RESERVATION_SEATED`). Permite trazabilidad entre la reservación y la orden resultante.
+- `duration_minutes DEFAULT 90`: define el fin estimado de la reservación (`scheduled_at + duration_minutes`). El use case lo usa para detectar solapamientos.
+- El umbral `reservation_upcoming_threshold_minutes` (en `SYSTEM_CONFIG`) controla cuántos minutos antes de `scheduled_at` la mesa cambia automáticamente a `RESERVED`. El estado de la mesa lo gestiona el use case, **nunca triggers**.
+- La validación de solapamiento de franjas (dos reservaciones `CONFIRMED` para la misma mesa en el mismo intervalo) es una regla de dominio que el use case ejecuta antes de insertar.
+
+**Flujo de estados gestionado por use cases:**
+
+| Evento | Acción del use case |
+|---|---|
+| Crear reservación | INSERT `reservation` (CONFIRMED) + INSERT `reservation_table`(s); si `scheduled_at` está dentro del umbral → UPDATE `restaurant_table.status = 'RESERVED'` |
+| Comensal llega (sentar) | UPDATE `reservation.status = 'SEATED'`, SET `order_id`; UPDATE `restaurant_table.status = 'OCCUPIED'` |
+| Cancelar reservación | UPDATE `reservation.status = 'CANCELLED'`; reevaluar si otras reservaciones próximas → si no → UPDATE `restaurant_table.status = 'FREE'` |
+| No-show | UPDATE `reservation.status = 'NO_SHOW'`; UPDATE `restaurant_table.status = 'FREE'` |
 
 ---
 
@@ -251,6 +299,19 @@ Todos los campos de tipo enum se almacenan como strings en la base de datos (val
 | `READY` | Ítem listo para ser llevado a la mesa |
 | `DELIVERED` | Ítem entregado al cliente |
 | `CANCELLED` | Ítem cancelado (se preserva para auditoría) |
+
+---
+
+### `ReservationStatus` — `RESERVATION.status`
+
+| Valor | Descripción |
+|---|---|
+| `CONFIRMED` | Reservación activa. Comensal aún no ha llegado |
+| `SEATED` | Comensal llegó y se sentó. `order_id` ya no es NULL |
+| `CANCELLED` | Reservación cancelada por el cliente o por el staff |
+| `NO_SHOW` | El horario pasó sin que el comensal apareciera |
+
+`SEATED`, `CANCELLED` y `NO_SHOW` son **estados terminales** — no permiten transición posterior. Esto se valida en la entidad de dominio Python, no en la base de datos.
 
 ---
 
@@ -311,6 +372,16 @@ Todos los campos de tipo enum se almacenan como strings en la base de datos (val
 | `TABLE_ASSIGNED` | `{"order_id": "...", "table_id": "..."}` |
 | `TABLE_RELEASED` | `{"order_id": "...", "table_id": "..."}` |
 
+#### Reservaciones
+
+| Valor | `details` relevantes |
+|---|---|
+| `RESERVATION_CREATED` | `{"reservation_id": "...", "table_ids": [...], "guest_name": "...", "scheduled_at": "..."}` |
+| `RESERVATION_UPDATED` | `{"reservation_id": "...", "changed_fields": [...]}` |
+| `RESERVATION_CANCELLED` | `{"reservation_id": "...", "guest_name": "...", "reason": "..."}` |
+| `RESERVATION_SEATED` | `{"reservation_id": "...", "order_id": "...", "table_ids": [...]}` |
+| `RESERVATION_NO_SHOW` | `{"reservation_id": "...", "guest_name": "...", "scheduled_at": "..."}` |
+
 ---
 
 ## Índices Recomendados
@@ -334,6 +405,24 @@ CREATE INDEX ON audit_log USING GIN (details);  -- queries sobre campos JSONB in
 
 -- Restricción de unicidad para tasa por defecto
 CREATE UNIQUE INDEX ON tax_rate (is_default) WHERE is_default = TRUE;
+
+-- Reservaciones: consulta principal de operaciones (solo reservaciones activas)
+CREATE INDEX ON reservation (branch_id, scheduled_at) WHERE status = 'CONFIRMED';
+
+-- Reservaciones: historial completo por sucursal
+CREATE INDEX ON reservation (branch_id, scheduled_at);
+
+-- Reservaciones: filtro por estado
+CREATE INDEX ON reservation (status);
+
+-- Reservaciones: trazabilidad del staff
+CREATE INDEX ON reservation (created_by_user_id);
+
+-- Reservaciones: enlace con orden
+CREATE INDEX ON reservation (order_id) WHERE order_id IS NOT NULL;
+
+-- reservation_table: búsqueda inversa "¿qué reservaciones tiene esta mesa?" (validación de solapamiento)
+CREATE INDEX ON reservation_table (table_id);
 ```
 
 > El índice parcial en `tax_rate` garantiza a nivel de base de datos que exactamente una fila puede tener `is_default = TRUE`.
@@ -356,6 +445,11 @@ CREATE UNIQUE INDEX ON tax_rate (is_default) WHERE is_default = TRUE;
 | `MODIFIER → ORDER_ITEM_MODIFIER` | `RESTRICT` | No borrar modificador con historial |
 | `CATEGORY → PRODUCT` | `RESTRICT` | No borrar categoría con productos asignados |
 | `TAX_RATE → PRODUCT` | `SET NULL` | Si se borra una tasa, `product.tax_rate_id` queda null → usa la tasa default |
+| `BRANCH → RESERVATION` | `RESTRICT` | No se puede borrar una sucursal con reservaciones (activas o históricas) |
+| `USER → RESERVATION` | `RESTRICT` | No se puede borrar un usuario con reservaciones creadas (trazabilidad del staff) |
+| `ORDER → RESERVATION` | `SET NULL` | Si se borra una orden (caso extremo), la reservación conserva su historial con `order_id = NULL` |
+| `RESERVATION → RESERVATION_TABLE` | `CASCADE` | Borrar una reservación elimina sus asociaciones de mesa |
+| `RESTAURANT_TABLE → RESERVATION_TABLE` | `RESTRICT` | No se puede borrar una mesa con historial de reservaciones |
 
 > En PostgreSQL, el comportamiento por defecto de una FK sin `ON DELETE` es `RESTRICT`. Estas reglas deben declararse explícitamente en las migraciones para que sean auto-documentadas.
 
@@ -411,3 +505,17 @@ Cada modificador tiene `product_id FK`, lo que significa que modificadores con e
 
 ### ROLE sin permisos granulares
 Los roles son etiquetas (ADMIN/MANAGER/WAITER). Si en el futuro se necesitan permisos por funcionalidad, se requeriría agregar una tabla de permisos. Para el alcance actual es suficiente.
+
+### `RESERVATION_TABLE` — patrón idéntico a `ORDER_TABLE`
+La tabla join `RESERVATION_TABLE` no tiene UUID propio. Su clave primaria es `PRIMARY KEY (reservation_id, table_id)`, igual que `ORDER_TABLE (order_id, table_id)`. Esto soporta grupos grandes que requieren mesas unidas: una reservación puede ocupar 2 o 3 mesas físicas que se juntan para la ocasión.
+
+### Denormalización de `RESERVATION.branch_id`
+`branch_id` es alcanzable via `reservation_table → restaurant_table → branch_id`, pero se incluye directamente en `reservation` por dos razones:
+1. **Consulta frecuente**: "reservaciones de hoy para esta sucursal" es la query central del tablero de operaciones; con `branch_id` directo el índice parcial cubre la consulta sin JOIN.
+2. **Validación en dominio**: el use case puede verificar que todas las mesas en `reservation_table` pertenezcan a la misma `branch_id` antes de insertar, detectando errores de asignación entre sucursales.
+
+### Estado de mesa vs. estado de reservación
+`restaurant_table.status` refleja el estado **en este momento** — no es un puntero a una reservación. La misma mesa puede tener varias reservaciones `CONFIRMED` en diferentes franjas el mismo día; el `status = 'RESERVED'` solo se activa cuando una reservación está dentro del umbral configurable (`reservation_upcoming_threshold_minutes`). Este estado lo gestiona el use case, nunca triggers ni scheduled jobs en la base de datos.
+
+### Validación de solapamiento — responsabilidad del use case
+Antes de insertar una reservación, el use case verifica que no exista otra reservación `CONFIRMED` para alguna de las mesas solicitadas en la misma franja `[scheduled_at, scheduled_at + duration_minutes]`. Esta es una regla de negocio y pertenece al dominio, no a constraints de base de datos.
