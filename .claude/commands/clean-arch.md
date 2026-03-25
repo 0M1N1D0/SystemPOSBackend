@@ -13,7 +13,7 @@ Domain Layer (innermost)
 
 ### Domain Layer (`app/domain/`)
 - Pure Python dataclasses or simple classes — zero framework imports
-- Entities mirror the DB schema: `Branch`, `User`, `Role`, `Category`, `Product`, `Modifier`, `RestaurantTable`, `Order`, `OrderTable`, `OrderItem`, `OrderItemModifier`, `AuditLog`, `SystemConfig`
+- Entities mirror the DB schema: `Branch`, `User`, `Role`, `TaxRate`, `Category`, `Product`, `Modifier`, `RestaurantTable`, `Order`, `OrderTable`, `OrderItem`, `OrderItemModifier`, `Reservation`, `ReservationTable`, `AuditLog`, `SystemConfig`
 - Repository interfaces (abstract base classes) defined here, implemented in Infrastructure
 - Domain exceptions defined here (e.g. `OrderAlreadyClosedError`)
 - No SQLAlchemy, no FastAPI, no Pydantic here
@@ -66,24 +66,28 @@ Domain Layer (innermost)
 All enums use `str, Enum` so they serialize as readable strings in DB and JSON.
 
 ```
-RoleName:         ADMIN | MANAGER | WAITER
-TableStatus:      FREE | OCCUPIED | RESERVED
-OrderStatus:      OPEN | PAID | CANCELLED
-PaymentMethod:    CASH | CARD | TRANSFER
-OrderItemStatus:  PENDING | IN_PREPARATION | READY | DELIVERED | CANCELLED
+RoleName:           ADMIN | MANAGER | WAITER
+TableStatus:        FREE | OCCUPIED | RESERVED
+OrderStatus:        OPEN | PAID | CANCELLED
+PaymentMethod:      CASH | CARD | TRANSFER
+OrderItemStatus:    PENDING | IN_PREPARATION | READY | DELIVERED | CANCELLED
+ReservationStatus:  CONFIRMED | SEATED | CANCELLED | NO_SHOW
+  (SEATED, CANCELLED, NO_SHOW are terminal states — no further transitions allowed; validated in domain entity)
 
 AuditAction:
-  Auth:     USER_LOGIN, USER_LOGOUT, USER_LOGIN_FAILED
-  Users:    USER_CREATED, USER_UPDATED, USER_DEACTIVATED,
-            USER_PIN_CHANGED, USER_PASSWORD_CHANGED
-  Catalog:  CATEGORY_CREATED, CATEGORY_UPDATED,
-            PRODUCT_CREATED, PRODUCT_UPDATED, PRODUCT_PRICE_UPDATED, PRODUCT_TOGGLED,
-            MODIFIER_CREATED, MODIFIER_UPDATED, MODIFIER_DELETED
-  Tax:      TAX_RATE_CREATED, TAX_RATE_UPDATED,
-            TAX_RATE_DEACTIVATED, TAX_RATE_DEFAULT_CHANGED
-  Orders:   ORDER_CREATED, ORDER_ITEM_ADDED, ORDER_ITEM_REMOVED, ORDER_ITEM_UPDATED,
-            ORDER_PAID, ORDER_CANCELLED, DISCOUNT_APPLIED,
-            TABLE_ASSIGNED, TABLE_RELEASED
+  Auth:         USER_LOGIN, USER_LOGOUT, USER_LOGIN_FAILED
+  Users:        USER_CREATED, USER_UPDATED, USER_DEACTIVATED,
+                USER_PIN_CHANGED, USER_PASSWORD_CHANGED
+  Catalog:      CATEGORY_CREATED, CATEGORY_UPDATED,
+                PRODUCT_CREATED, PRODUCT_UPDATED, PRODUCT_PRICE_UPDATED, PRODUCT_TOGGLED,
+                MODIFIER_CREATED, MODIFIER_UPDATED, MODIFIER_DELETED
+  Tax:          TAX_RATE_CREATED, TAX_RATE_UPDATED,
+                TAX_RATE_DEACTIVATED, TAX_RATE_DEFAULT_CHANGED
+  Orders:       ORDER_CREATED, ORDER_ITEM_ADDED, ORDER_ITEM_REMOVED, ORDER_ITEM_UPDATED,
+                ORDER_PAID, ORDER_CANCELLED, DISCOUNT_APPLIED,
+                TABLE_ASSIGNED, TABLE_RELEASED
+  Reservations: RESERVATION_CREATED, RESERVATION_UPDATED, RESERVATION_CANCELLED,
+                RESERVATION_SEATED, RESERVATION_NO_SHOW
 ```
 
 Never use raw strings for these values in use cases or repositories.
@@ -105,6 +109,13 @@ Never use raw strings for these values in use cases or repositories.
 - Auth has two paths: PIN (POS terminal) and email+password (web dashboard)
 - All entity IDs are UUIDs generated in Python (`uuid.uuid4()`), not by PostgreSQL
 - Never use `float` for monetary or rate values — always `decimal.Decimal` in Python, `NUMERIC` in PostgreSQL
+- `Reservation.branch_id` is NOT NULL and denormalized (also reachable via `reservation_table → restaurant_table`) for efficient branch-level queries
+- `Reservation.order_id` is nullable — linked when guest arrives and a new order is opened (`RESERVATION_SEATED`)
+- `Reservation.duration_minutes` defaults to 90 — defines estimated end time (`scheduled_at + duration_minutes`)
+- `ReservationTable` has composite PK `(reservation_id, table_id)` — no UUID needed; mirrors `OrderTable` pattern
+- Overlap validation (two `CONFIRMED` reservations for the same table in the same time slot) is a domain rule enforced in the use case, not a DB constraint
+- `RestaurantTable.status = RESERVED` is set by the use case when a `CONFIRMED` reservation falls within the `reservation_upcoming_threshold_minutes` threshold (stored in `SYSTEM_CONFIG`); never use DB triggers
+- `ReservationStatus` terminal states (`SEATED`, `CANCELLED`, `NO_SHOW`) must be validated in the domain entity — no transitions out of terminal states
 
 ---
 

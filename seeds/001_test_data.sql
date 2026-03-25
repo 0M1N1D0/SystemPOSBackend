@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Seed: 001_test_data
 -- Propósito: Datos de prueba para verificar consultas sobre el diseño de SystemPOS
--- Total: ~95 registros distribuidos en las 14 tablas
+-- Total: ~117 registros distribuidos en las 14 tablas
 --
 -- Datos simulados de un restaurante mexicano (dos sucursales en CDMX)
 --
@@ -73,11 +73,11 @@ INSERT INTO tax_rate (id, name, rate, is_default, is_active) VALUES
 INSERT INTO category (id, name, description, sort_order) VALUES
     ('40000000-0000-0000-0000-000000000001',
      'Bebidas',
-     'Aguas frescas, refrescos y bebidas frías de temporada',
+     'Aguas frescas, refrescos, cafés y bebidas frías de temporada',
      1),
     ('40000000-0000-0000-0000-000000000002',
-     'Antojitos',
-     'Sopes, quesadillas, tlayudas y otros antojitos mexicanos',
+     'Entradas',
+     'Sopas, ensaladas, guacamole y otros platillos de entrada',
      2),
     ('40000000-0000-0000-0000-000000000003',
      'Platos Fuertes',
@@ -116,7 +116,7 @@ VALUES
      '10000000-0000-0000-0000-000000000002',
      'Laura', 'Pérez', 'Gutiérrez',
      'laura.perez@elsabordemex.mx',
-     '$2b$12$SEED.TEST.ONLY.pwd.Manager.AAAAAAAAAAAAAAAAAAAAAAAAAAA',
+     '$2b$12$SEED.TEST.ONLY.pwd.Manager.AAAAAAAAAAAAAAAAAAAAAAAAAA',
      '$2b$12$SEED.TEST.ONLY.pin.200000.AAAAAAAAAAAAAAAAAAAAAAAAAAA',
      TRUE,
      '2024-08-05 09:00:00+00'),
@@ -217,15 +217,16 @@ VALUES
 
 
 -- ---------------------------------------------------------------------------
--- 6. PRODUCT  (8 registros)
---   p1, p3       → tasa explícita Exento (agua y agua fresca)
---   p2           → tasa explícita IVA 16%
---   p4 al p7     → tax_rate_id NULL → hereda tasa default (IVA 16%)
---   p8           → is_available FALSE (temporalmente agotado — para pruebas de filtro)
+-- 6. PRODUCT  (30 registros)
+--   Bebidas (10): p1-p3 Exento; p2, p15 IVA 16%; p9-p14 Exento
+--   Entradas (5): p4-p5 reusados (UUID preservado por FK en order_item); p16-p18 nuevos
+--   Platos Fuertes (10): p6-p7 existentes; p19-p26 nuevos
+--   Postres (5): p8 is_available FALSE (prueba de filtro); p27-p30 nuevos
+--   Todos los NULL en tax_rate_id heredan tasa default (IVA 16%)
 -- ---------------------------------------------------------------------------
 INSERT INTO product (id, category_id, tax_rate_id, name, base_price, is_available, sort_order)
 VALUES
-    -- Bebidas
+    -- ---- Bebidas (10) ---------------------------------------------------------
     ('60000000-0000-0000-0000-000000000001',
      '40000000-0000-0000-0000-000000000001',
      '30000000-0000-0000-0000-000000000002',   -- Exento
@@ -241,18 +242,69 @@ VALUES
      '30000000-0000-0000-0000-000000000002',   -- Exento
      'Agua Mineral Peñafiel 600 ml', 22.0000, TRUE, 3),
 
-    -- Antojitos
+    ('60000000-0000-0000-0000-000000000009',
+     '40000000-0000-0000-0000-000000000001',
+     '30000000-0000-0000-0000-000000000002',   -- Exento
+     'Agua de Jamaica (1 L)', 35.0000, TRUE, 4),
+
+    ('60000000-0000-0000-0000-000000000010',
+     '40000000-0000-0000-0000-000000000001',
+     '30000000-0000-0000-0000-000000000002',   -- Exento
+     'Agua de Limón con Chía (1 L)', 38.0000, TRUE, 5),
+
+    ('60000000-0000-0000-0000-000000000011',
+     '40000000-0000-0000-0000-000000000001',
+     '30000000-0000-0000-0000-000000000002',   -- Exento
+     'Agua de Tamarindo (1 L)', 35.0000, TRUE, 6),
+
+    ('60000000-0000-0000-0000-000000000012',
+     '40000000-0000-0000-0000-000000000001',
+     '30000000-0000-0000-0000-000000000002',   -- Exento
+     'Limonada Natural', 42.0000, TRUE, 7),
+
+    ('60000000-0000-0000-0000-000000000013',
+     '40000000-0000-0000-0000-000000000001',
+     '30000000-0000-0000-0000-000000000002',   -- Exento
+     'Café Americano', 38.0000, TRUE, 8),
+
+    ('60000000-0000-0000-0000-000000000014',
+     '40000000-0000-0000-0000-000000000001',
+     '30000000-0000-0000-0000-000000000002',   -- Exento
+     'Té de Hierbas', 30.0000, TRUE, 9),
+
+    ('60000000-0000-0000-0000-000000000015',
+     '40000000-0000-0000-0000-000000000001',
+     '30000000-0000-0000-0000-000000000001',   -- IVA 16%
+     'Michelada Clásica', 65.0000, TRUE, 10),
+
+    -- ---- Entradas (5) ---------------------------------------------------------
+    -- p4 y p5: UUIDs reutilizados (referenciados en order_item históricos)
     ('60000000-0000-0000-0000-000000000004',
      '40000000-0000-0000-0000-000000000002',
-     NULL,                                      -- hereda IVA 16% (default)
-     'Sope de Frijoles con Chorizo', 65.0000, TRUE, 1),
+     NULL,
+     'Sopa del Día', 55.0000, TRUE, 1),
 
     ('60000000-0000-0000-0000-000000000005',
      '40000000-0000-0000-0000-000000000002',
      NULL,
-     'Quesadilla de Huitlacoche', 75.0000, TRUE, 2),
+     'Crema de Elote', 65.0000, TRUE, 2),
 
-    -- Platos Fuertes
+    ('60000000-0000-0000-0000-000000000016',
+     '40000000-0000-0000-0000-000000000002',
+     NULL,
+     'Guacamole con Tostadas', 75.0000, TRUE, 3),
+
+    ('60000000-0000-0000-0000-000000000017',
+     '40000000-0000-0000-0000-000000000002',
+     NULL,
+     'Ensalada de la Casa', 68.0000, TRUE, 4),
+
+    ('60000000-0000-0000-0000-000000000018',
+     '40000000-0000-0000-0000-000000000002',
+     NULL,
+     'Ceviche Tostada', 90.0000, TRUE, 5),
+
+    -- ---- Platos Fuertes (10) --------------------------------------------------
     ('60000000-0000-0000-0000-000000000006',
      '40000000-0000-0000-0000-000000000003',
      NULL,
@@ -263,19 +315,80 @@ VALUES
      NULL,
      'Enchiladas Verdes con Pollo', 120.0000, TRUE, 2),
 
-    -- Postres (agotado — para probar filtros de disponibilidad)
+    ('60000000-0000-0000-0000-000000000019',
+     '40000000-0000-0000-0000-000000000003',
+     NULL,
+     'Carne Asada a las Brasas', 220.0000, TRUE, 3),
+
+    ('60000000-0000-0000-0000-000000000020',
+     '40000000-0000-0000-0000-000000000003',
+     NULL,
+     'Pozole Rojo', 120.0000, TRUE, 4),
+
+    ('60000000-0000-0000-0000-000000000021',
+     '40000000-0000-0000-0000-000000000003',
+     NULL,
+     'Chile en Nogada', 180.0000, TRUE, 5),
+
+    ('60000000-0000-0000-0000-000000000022',
+     '40000000-0000-0000-0000-000000000003',
+     NULL,
+     'Mole Poblano con Pollo', 165.0000, TRUE, 6),
+
+    ('60000000-0000-0000-0000-000000000023',
+     '40000000-0000-0000-0000-000000000003',
+     NULL,
+     'Cochinita Pibil con Arroz', 155.0000, TRUE, 7),
+
+    ('60000000-0000-0000-0000-000000000024',
+     '40000000-0000-0000-0000-000000000003',
+     NULL,
+     'Camarones al Ajillo', 195.0000, TRUE, 8),
+
+    ('60000000-0000-0000-0000-000000000025',
+     '40000000-0000-0000-0000-000000000003',
+     NULL,
+     'Birria de Res', 145.0000, TRUE, 9),
+
+    ('60000000-0000-0000-0000-000000000026',
+     '40000000-0000-0000-0000-000000000003',
+     NULL,
+     'Costilla BBQ', 250.0000, TRUE, 10),
+
+    -- ---- Postres (5) ----------------------------------------------------------
+    -- p8: is_available FALSE para pruebas de filtro de disponibilidad
     ('60000000-0000-0000-0000-000000000008',
      '40000000-0000-0000-0000-000000000004',
      NULL,
-     'Pastel de Tres Leches', 90.0000, FALSE, 1);
+     'Pastel de Tres Leches', 90.0000, FALSE, 1),
+
+    ('60000000-0000-0000-0000-000000000027',
+     '40000000-0000-0000-0000-000000000004',
+     NULL,
+     'Flan Napolitano', 75.0000, TRUE, 2),
+
+    ('60000000-0000-0000-0000-000000000028',
+     '40000000-0000-0000-0000-000000000004',
+     NULL,
+     'Churros con Cajeta', 65.0000, TRUE, 3),
+
+    ('60000000-0000-0000-0000-000000000029',
+     '40000000-0000-0000-0000-000000000004',
+     NULL,
+     'Helado Artesanal (3 bolas)', 70.0000, TRUE, 4),
+
+    ('60000000-0000-0000-0000-000000000030',
+     '40000000-0000-0000-0000-000000000004',
+     NULL,
+     'Arroz con Leche', 55.0000, TRUE, 5);
 
 
 -- ---------------------------------------------------------------------------
--- 7. MODIFIER  (4 registros)
+-- 7. MODIFIER  (18 registros)
 -- ---------------------------------------------------------------------------
 INSERT INTO modifier (id, product_id, name, extra_price)
 VALUES
-    -- Para Tacos de Canasta
+    -- Para Tacos de Canasta (p6)
     ('70000000-0000-0000-0000-000000000001',
      '60000000-0000-0000-0000-000000000006',
      'Sin cebolla', 0.0000),
@@ -284,15 +397,79 @@ VALUES
      '60000000-0000-0000-0000-000000000006',
      'Extra salsa verde', 8.0000),
 
-    -- Para Quesadilla de Huitlacoche
+    ('70000000-0000-0000-0000-000000000014',
+     '60000000-0000-0000-0000-000000000006',
+     'Porción extra (3 pzas más)', 85.0000),
+
+    -- Para Crema de Elote (p5)
     ('70000000-0000-0000-0000-000000000003',
      '60000000-0000-0000-0000-000000000005',
-     'Agregar crema y queso', 12.0000),
+     'Extra crema y crutones', 15.0000),
 
-    -- Para Refresco Coca-Cola
+    -- Para Refresco Coca-Cola (p2)
     ('70000000-0000-0000-0000-000000000004',
      '60000000-0000-0000-0000-000000000002',
-     'Tamaño familiar 600 ml', 10.0000);
+     'Tamaño familiar 600 ml', 10.0000),
+
+    -- Para Café Americano (p13)
+    ('70000000-0000-0000-0000-000000000005',
+     '60000000-0000-0000-0000-000000000013',
+     'Con leche', 8.0000),
+
+    ('70000000-0000-0000-0000-000000000006',
+     '60000000-0000-0000-0000-000000000013',
+     'Con crema batida', 12.0000),
+
+    -- Para Michelada Clásica (p15)
+    ('70000000-0000-0000-0000-000000000007',
+     '60000000-0000-0000-0000-000000000015',
+     'Extra chamoy', 10.0000),
+
+    -- Para Guacamole con Tostadas (p16)
+    ('70000000-0000-0000-0000-000000000008',
+     '60000000-0000-0000-0000-000000000016',
+     'Extra tostadas (3 pzas)', 12.0000),
+
+    -- Para Ensalada de la Casa (p17) — aderezos
+    ('70000000-0000-0000-0000-000000000009',
+     '60000000-0000-0000-0000-000000000017',
+     'Aderezo Ranch', 15.0000),
+
+    ('70000000-0000-0000-0000-000000000010',
+     '60000000-0000-0000-0000-000000000017',
+     'Aderezo Chipotle', 15.0000),
+
+    ('70000000-0000-0000-0000-000000000011',
+     '60000000-0000-0000-0000-000000000017',
+     'Aderezo Vinagreta', 12.0000),
+
+    -- Para Carne Asada a las Brasas (p19)
+    ('70000000-0000-0000-0000-000000000012',
+     '60000000-0000-0000-0000-000000000019',
+     'Término de la carne (señalar)', 0.0000),
+
+    ('70000000-0000-0000-0000-000000000013',
+     '60000000-0000-0000-0000-000000000019',
+     'Extra guacamole', 35.0000),
+
+    ('70000000-0000-0000-0000-000000000015',
+     '60000000-0000-0000-0000-000000000019',
+     'Extra tortillas (3 pzas)', 15.0000),
+
+    -- Para Camarones al Ajillo (p24)
+    ('70000000-0000-0000-0000-000000000016',
+     '60000000-0000-0000-0000-000000000024',
+     'Extra salsa de ajo', 20.0000),
+
+    -- Para Churros con Cajeta (p28)
+    ('70000000-0000-0000-0000-000000000017',
+     '60000000-0000-0000-0000-000000000028',
+     'Extra cajeta', 18.0000),
+
+    -- Para Helado Artesanal (p29)
+    ('70000000-0000-0000-0000-000000000018',
+     '60000000-0000-0000-0000-000000000029',
+     'Topping de frutos rojos', 18.0000);
 
 
 -- ---------------------------------------------------------------------------
@@ -778,7 +955,7 @@ VALUES
      '50000000-0000-0000-0000-000000000007',
      1974.0000, 308.1600, 0.0000, 0.0000, 2282.1600,
      'PAID', 'CARD',
-     '2026-03-01 22:53:00+00', '2026-03-01 24:10:00+00'),
+     '2026-03-01 22:53:00+00', '2026-03-02 00:10:00+00'),
     ('90000000-0000-0000-0000-000000000028',
      '50000000-0000-0000-0000-000000000006',
      1971.0000, 304.8000, 0.0000, 0.0000, 2275.8000,

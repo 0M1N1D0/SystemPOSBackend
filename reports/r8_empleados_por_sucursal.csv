@@ -1,5 +1,12 @@
 sucursal,nombre_completo,rol,email,estado
 Sucursal Centro Histórico,Laura Pérez Gutiérrez,MANAGER,laura.perez@elsabordemex.mx,Activo
+Sucursal Centro Histórico,Daniela Castro Vega,WAITER,—,Activo
+Sucursal Centro Histórico,Javier Hernández Cruz,WAITER,—,Activo
+Sucursal Centro Histórico,Sofía Ramírez Morales,WAITER,—,Activo
+Sucursal Centro Histórico,Rodrigo Sánchez Lima,WAITER,—,Activo
 Sucursal Centro Histórico,Miguel Torres Salinas,WAITER,—,Activo
 Sucursal Coyoacán,Ana Flores,WAITER,—,Activo
+Sucursal Coyoacán,Paola Jiménez Reyes,WAITER,—,Activo
+Sucursal Coyoacán,Valentina López Díaz,WAITER,—,Activo
+Sucursal Coyoacán,Ernesto Morales Fuentes,WAITER,—,Activo
 Sin sucursal (Admin global),Carlos Mendoza Ríos,ADMIN,carlos.mendoza@elsabordemex.mx,Activo

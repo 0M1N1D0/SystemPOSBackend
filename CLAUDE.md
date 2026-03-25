@@ -65,7 +65,21 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-SQLite is used locally (`sqlite.db` is gitignored). The `.env` file holds configuration (use `.env.example` as template).
+### Base de datos local (PostgreSQL)
+
+Las credenciales de conexión están en `.env` (ver `.env.example` como referencia). No commitear `.env`.
+
+`psql` disponible en:
+```
+/Applications/pgAdmin 4.app/Contents/SharedSupport/psql
+```
+
+Ejemplo de uso (carga credenciales desde `.env`):
+```bash
+export $(grep -v '^#' .env | xargs)
+PGPASSWORD=$DB_PASSWORD /Applications/pgAdmin\ 4.app/Contents/SharedSupport/psql \
+  -h $DB_HOST -U $DB_USER -d $DB_NAME -p $DB_PORT
+```
 
 ## Commands
 
