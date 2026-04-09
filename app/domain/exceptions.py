@@ -49,3 +49,20 @@ class TaxRateNotFoundError(NotFoundError):
 class TaxRateIsDefaultError(DomainException):
     """Raised when trying to deactivate the current default tax rate."""
     pass
+
+
+class CategoryNotFoundError(NotFoundError):
+    pass
+
+
+class ProductNotFoundError(NotFoundError):
+    pass
+
+
+class ModifierNotFoundError(NotFoundError):
+    pass
+
+
+class ModifierHasHistoryError(DomainException):
+    """Raised when trying to delete a modifier that is referenced in order history."""
+    pass

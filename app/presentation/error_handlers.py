@@ -6,6 +6,7 @@ from app.domain.exceptions import (
     EmailAlreadyExistsError,
     InvalidCredentialsError,
     InvalidTokenError,
+    ModifierHasHistoryError,
     NotFoundError,
     UserInactiveError,
 )
@@ -45,3 +46,9 @@ def register_error_handlers(app: FastAPI) -> None:
         request: Request, exc: BusinessRuleViolationError
     ) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(ModifierHasHistoryError)
+    async def modifier_has_history_handler(
+        request: Request, exc: ModifierHasHistoryError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})

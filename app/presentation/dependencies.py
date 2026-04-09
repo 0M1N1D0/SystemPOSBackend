@@ -24,6 +24,20 @@ from app.application.use_cases.users.deactivate_user import DeactivateUserUseCas
 from app.application.use_cases.users.get_user import GetUserUseCase
 from app.application.use_cases.users.list_users import ListUsersUseCase
 from app.application.use_cases.users.update_user import UpdateUserUseCase
+from app.application.use_cases.catalog.create_category import CreateCategoryUseCase
+from app.application.use_cases.catalog.update_category import UpdateCategoryUseCase
+from app.application.use_cases.catalog.list_categories import ListCategoriesUseCase
+from app.application.use_cases.catalog.get_category import GetCategoryUseCase
+from app.application.use_cases.catalog.create_product import CreateProductUseCase
+from app.application.use_cases.catalog.update_product import UpdateProductUseCase
+from app.application.use_cases.catalog.update_product_price import UpdateProductPriceUseCase
+from app.application.use_cases.catalog.toggle_product_availability import ToggleProductAvailabilityUseCase
+from app.application.use_cases.catalog.list_products_by_category import ListProductsByCategoryUseCase
+from app.application.use_cases.catalog.get_product import GetProductUseCase
+from app.application.use_cases.catalog.create_modifier import CreateModifierUseCase
+from app.application.use_cases.catalog.update_modifier import UpdateModifierUseCase
+from app.application.use_cases.catalog.delete_modifier import DeleteModifierUseCase
+from app.application.use_cases.catalog.list_modifiers_by_product import ListModifiersByProductUseCase
 from app.application.use_cases.tax_rates.create_tax_rate import CreateTaxRateUseCase
 from app.application.use_cases.tax_rates.update_tax_rate import UpdateTaxRateUseCase
 from app.application.use_cases.tax_rates.deactivate_tax_rate import DeactivateTaxRateUseCase
@@ -34,6 +48,9 @@ from app.config import settings
 from app.domain.enums import RoleName
 from app.domain.services.i_token_service import TokenPayload
 from app.infrastructure.database import get_session
+from app.infrastructure.repositories.category_repository import SqlCategoryRepository
+from app.infrastructure.repositories.product_repository import SqlProductRepository
+from app.infrastructure.repositories.modifier_repository import SqlModifierRepository
 from app.infrastructure.repositories.audit_log_repository import SqlAuditLogRepository
 from app.infrastructure.repositories.branch_repository import SqlBranchRepository
 from app.infrastructure.repositories.role_repository import SqlRoleRepository
@@ -276,3 +293,145 @@ def get_get_tax_rate_use_case(
     session: Session = Depends(get_session),
 ) -> GetTaxRateUseCase:
     return GetTaxRateUseCase(SqlTaxRateRepository(session))
+
+
+# --- Catalog use cases ---
+
+def get_create_category_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> CreateCategoryUseCase:
+    return CreateCategoryUseCase(
+        category_repo=SqlCategoryRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_update_category_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> UpdateCategoryUseCase:
+    return UpdateCategoryUseCase(
+        category_repo=SqlCategoryRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_list_categories_use_case(
+    session: Session = Depends(get_session),
+) -> ListCategoriesUseCase:
+    return ListCategoriesUseCase(SqlCategoryRepository(session))
+
+
+def get_get_category_use_case(
+    session: Session = Depends(get_session),
+) -> GetCategoryUseCase:
+    return GetCategoryUseCase(SqlCategoryRepository(session))
+
+
+def get_create_product_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> CreateProductUseCase:
+    return CreateProductUseCase(
+        product_repo=SqlProductRepository(session),
+        category_repo=SqlCategoryRepository(session),
+        tax_rate_repo=SqlTaxRateRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_update_product_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> UpdateProductUseCase:
+    return UpdateProductUseCase(
+        product_repo=SqlProductRepository(session),
+        category_repo=SqlCategoryRepository(session),
+        tax_rate_repo=SqlTaxRateRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_update_product_price_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> UpdateProductPriceUseCase:
+    return UpdateProductPriceUseCase(
+        product_repo=SqlProductRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_toggle_product_availability_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> ToggleProductAvailabilityUseCase:
+    return ToggleProductAvailabilityUseCase(
+        product_repo=SqlProductRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_list_products_by_category_use_case(
+    session: Session = Depends(get_session),
+) -> ListProductsByCategoryUseCase:
+    return ListProductsByCategoryUseCase(
+        product_repo=SqlProductRepository(session),
+        category_repo=SqlCategoryRepository(session),
+    )
+
+
+def get_get_product_use_case(
+    session: Session = Depends(get_session),
+) -> GetProductUseCase:
+    return GetProductUseCase(SqlProductRepository(session))
+
+
+def get_create_modifier_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> CreateModifierUseCase:
+    return CreateModifierUseCase(
+        modifier_repo=SqlModifierRepository(session),
+        product_repo=SqlProductRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_update_modifier_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> UpdateModifierUseCase:
+    return UpdateModifierUseCase(
+        modifier_repo=SqlModifierRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_delete_modifier_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> DeleteModifierUseCase:
+    return DeleteModifierUseCase(
+        modifier_repo=SqlModifierRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_list_modifiers_by_product_use_case(
+    session: Session = Depends(get_session),
+) -> ListModifiersByProductUseCase:
+    return ListModifiersByProductUseCase(
+        modifier_repo=SqlModifierRepository(session),
+        product_repo=SqlProductRepository(session),
+    )

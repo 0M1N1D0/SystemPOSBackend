@@ -754,7 +754,7 @@ graph TD
 | **Usuarios** | ✅ | ✅ | ✅ | ✅ | CRUD + change-pin + change-password. Soft-delete. Dual auth (PIN / email+password) |
 | **Auth** | ✅ | ✅ | ✅ | ✅ | JWT diferenciado: PIN → 480 min, Password → 60 min |
 | **Auditoría** | ✅ | — | ✅ | — | `IAuditLogService` inyectado en use cases. Sin endpoints de consulta aún |
-| **Catálogo** | ❌ | ❌ | ❌ | ❌ | Pendiente |
+| **Catálogo** | ✅ | ✅ | ✅ | ✅ | CRUD completo. Categorías (con description, sort_order), Productos (con toggle-availability, price update), Modificadores (con RESTRICT en delete). Prefijo `/catalog` |
 | **Tasas de Impuesto** | ✅ | ✅ | ✅ | ✅ | CRUD completo + set-default. Soft-delete. Guarda `is_default` swap atómico vía `clear_default()` |
 | **Mesas** | ❌ | ❌ | ❌ | ❌ | Pendiente |
 | **Órdenes** | ❌ | ❌ | ❌ | ❌ | Pendiente |
