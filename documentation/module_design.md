@@ -756,7 +756,7 @@ graph TD
 | **Auditoría** | ✅ | — | ✅ | — | `IAuditLogService` inyectado en use cases. Sin endpoints de consulta aún |
 | **Catálogo** | ✅ | ✅ | ✅ | ✅ | CRUD completo. Categorías (con description, sort_order), Productos (con toggle-availability, price update), Modificadores (con RESTRICT en delete). Prefijo `/catalog` |
 | **Tasas de Impuesto** | ✅ | ✅ | ✅ | ✅ | CRUD completo + set-default. Soft-delete. Guarda `is_default` swap atómico vía `clear_default()` |
-| **Mesas** | ❌ | ❌ | ❌ | ❌ | Pendiente |
+| **Mesas** | ✅ | ✅ | ✅ | ✅ | CRUD completo (sin delete). Status gestionado por Órdenes/Reservaciones. Prefijo `/tables` |
 | **Órdenes** | ❌ | ❌ | ❌ | ❌ | Pendiente |
 | **Reservaciones** | ❌ | ❌ | ❌ | ❌ | Pendiente |
 | **Configuración** | ❌ | ❌ | ❌ | ❌ | Pendiente. Requerida por Reservaciones (`reservation_upcoming_threshold_minutes`) |

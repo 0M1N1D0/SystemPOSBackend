@@ -44,6 +44,22 @@ from app.application.use_cases.tax_rates.deactivate_tax_rate import DeactivateTa
 from app.application.use_cases.tax_rates.set_default_tax_rate import SetDefaultTaxRateUseCase
 from app.application.use_cases.tax_rates.list_tax_rates import ListTaxRatesUseCase
 from app.application.use_cases.tax_rates.get_tax_rate import GetTaxRateUseCase
+from app.application.use_cases.tables.create_table import CreateTableUseCase
+from app.application.use_cases.tables.update_table import UpdateTableUseCase
+from app.application.use_cases.tables.get_table import GetTableUseCase
+from app.application.use_cases.tables.list_tables_by_branch import ListTablesByBranchUseCase
+from app.application.use_cases.orders.create_order import CreateOrderUseCase
+from app.application.use_cases.orders.add_order_item import AddOrderItemUseCase
+from app.application.use_cases.orders.remove_order_item import RemoveOrderItemUseCase
+from app.application.use_cases.orders.update_order_item import UpdateOrderItemUseCase
+from app.application.use_cases.orders.update_order_item_status import UpdateOrderItemStatusUseCase
+from app.application.use_cases.orders.pay_order import PayOrderUseCase
+from app.application.use_cases.orders.cancel_order import CancelOrderUseCase
+from app.application.use_cases.orders.apply_discount import ApplyDiscountUseCase
+from app.application.use_cases.orders.assign_table import AssignTableUseCase
+from app.application.use_cases.orders.release_table import ReleaseTableUseCase
+from app.application.use_cases.orders.get_order import GetOrderUseCase
+from app.application.use_cases.orders.list_open_orders import ListOpenOrdersUseCase
 from app.config import settings
 from app.domain.enums import RoleName
 from app.domain.services.i_token_service import TokenPayload
@@ -56,6 +72,8 @@ from app.infrastructure.repositories.branch_repository import SqlBranchRepositor
 from app.infrastructure.repositories.role_repository import SqlRoleRepository
 from app.infrastructure.repositories.user_repository import SqlUserRepository
 from app.infrastructure.repositories.tax_rate_repository import SqlTaxRateRepository
+from app.infrastructure.repositories.restaurant_table_repository import SqlRestaurantTableRepository
+from app.infrastructure.repositories.order_repository import SqlOrderRepository
 from app.infrastructure.services.audit_log_service import AuditLogService
 from app.infrastructure.services.bcrypt_hasher import BcryptHasher
 from app.infrastructure.services.jwt_token_service import JwtTokenService
@@ -435,3 +453,164 @@ def get_list_modifiers_by_product_use_case(
         modifier_repo=SqlModifierRepository(session),
         product_repo=SqlProductRepository(session),
     )
+
+
+# --- Table use cases ---
+
+def get_create_table_use_case(
+    session: Session = Depends(get_session),
+) -> CreateTableUseCase:
+    return CreateTableUseCase(
+        table_repo=SqlRestaurantTableRepository(session),
+        branch_repo=SqlBranchRepository(session),
+    )
+
+
+def get_update_table_use_case(
+    session: Session = Depends(get_session),
+) -> UpdateTableUseCase:
+    return UpdateTableUseCase(SqlRestaurantTableRepository(session))
+
+
+def get_get_table_use_case(
+    session: Session = Depends(get_session),
+) -> GetTableUseCase:
+    return GetTableUseCase(SqlRestaurantTableRepository(session))
+
+
+def get_list_tables_by_branch_use_case(
+    session: Session = Depends(get_session),
+) -> ListTablesByBranchUseCase:
+    return ListTablesByBranchUseCase(
+        table_repo=SqlRestaurantTableRepository(session),
+        branch_repo=SqlBranchRepository(session),
+    )
+
+
+# --- Order use cases ---
+
+def get_create_order_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> CreateOrderUseCase:
+    return CreateOrderUseCase(
+        order_repo=SqlOrderRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        user_repo=SqlUserRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_add_order_item_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> AddOrderItemUseCase:
+    return AddOrderItemUseCase(
+        order_repo=SqlOrderRepository(session),
+        product_repo=SqlProductRepository(session),
+        modifier_repo=SqlModifierRepository(session),
+        tax_rate_repo=SqlTaxRateRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_remove_order_item_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> RemoveOrderItemUseCase:
+    return RemoveOrderItemUseCase(
+        order_repo=SqlOrderRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_update_order_item_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> UpdateOrderItemUseCase:
+    return UpdateOrderItemUseCase(
+        order_repo=SqlOrderRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_update_order_item_status_use_case(
+    session: Session = Depends(get_session),
+) -> UpdateOrderItemStatusUseCase:
+    return UpdateOrderItemStatusUseCase(SqlOrderRepository(session))
+
+
+def get_pay_order_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> PayOrderUseCase:
+    return PayOrderUseCase(
+        order_repo=SqlOrderRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_cancel_order_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> CancelOrderUseCase:
+    return CancelOrderUseCase(
+        order_repo=SqlOrderRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_apply_discount_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> ApplyDiscountUseCase:
+    return ApplyDiscountUseCase(
+        order_repo=SqlOrderRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+        actor_role=payload.role,
+    )
+
+
+def get_assign_table_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> AssignTableUseCase:
+    return AssignTableUseCase(
+        order_repo=SqlOrderRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_release_table_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> ReleaseTableUseCase:
+    return ReleaseTableUseCase(
+        order_repo=SqlOrderRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_get_order_use_case(
+    session: Session = Depends(get_session),
+) -> GetOrderUseCase:
+    return GetOrderUseCase(SqlOrderRepository(session))
+
+
+def get_list_open_orders_use_case(
+    session: Session = Depends(get_session),
+) -> ListOpenOrdersUseCase:
+    return ListOpenOrdersUseCase(SqlOrderRepository(session))

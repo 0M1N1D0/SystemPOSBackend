@@ -66,3 +66,35 @@ class ModifierNotFoundError(NotFoundError):
 class ModifierHasHistoryError(DomainException):
     """Raised when trying to delete a modifier that is referenced in order history."""
     pass
+
+
+class RestaurantTableNotFoundError(NotFoundError):
+    pass
+
+
+class OrderNotFoundError(NotFoundError):
+    pass
+
+
+class OrderItemNotFoundError(NotFoundError):
+    pass
+
+
+class OrderAlreadyClosedError(DomainException):
+    """Raised when trying to modify a PAID or CANCELLED order."""
+    pass
+
+
+class TableAlreadyOccupiedError(DomainException):
+    """Raised when trying to assign a table that already has an open order."""
+    pass
+
+
+class InsufficientPermissionsError(DomainException):
+    """Raised when the actor's role is not allowed to perform the action."""
+    pass
+
+
+class DefaultTaxRateNotFoundError(DomainException):
+    """Raised when no default tax rate is configured and a product has no explicit rate."""
+    pass
