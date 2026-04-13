@@ -429,13 +429,12 @@ flowchart TD
     end
 
     subgraph REPOS["Repositorios requeridos"]
-        R1[IOrderRepository]
-        R2[IOrderItemRepository]
-        R3[IProductRepository]
-        R4[IModifierRepository]
-        R5[ITaxRateRepository]
-        R6[IRestaurantTableRepository]
-        R7[IUserRepository]
+        R1[IOrderRepository\nOrder + OrderItem + OrderItemModifier + OrderTable]
+        R2[IProductRepository]
+        R3[IModifierRepository]
+        R4[ITaxRateRepository]
+        R5[IRestaurantTableRepository]
+        R6[IUserRepository]
     end
 
     subgraph AUDIT_OUT["Auditoría emitida"]
@@ -448,14 +447,14 @@ flowchart TD
     end
 
     LIFECYCLE --> R1
+    LIFECYCLE --> R5
     LIFECYCLE --> R6
     ITEMS --> R1
     ITEMS --> R2
     ITEMS --> R3
     ITEMS --> R4
-    ITEMS --> R5
     EXTRAS --> R1
-    EXTRAS --> R6
+    EXTRAS --> R5
 
     LIFECYCLE --> A1
     LIFECYCLE --> A3
@@ -702,8 +701,7 @@ graph LR
 | `IProductRepository` | Catálogo | `save`, `find_by_id`, `find_by_category`, `update` |
 | `IModifierRepository` | Catálogo | `save`, `find_by_product`, `find_by_id`, `update`, `delete` |
 | `IRestaurantTableRepository` | Mesas | `save`, `find_by_id`, `find_by_branch`, `find_by_ids`, `update_status`, `update` |
-| `IOrderRepository` | Órdenes | `save`, `find_by_id`, `find_open_by_branch`, `update` |
-| `IOrderItemRepository` | Órdenes | `save`, `find_by_order`, `find_by_id`, `update`, `delete` |
+| `IOrderRepository` | Órdenes | `save`, `find_by_id`, `find_by_status`, `update`, `add_order_table`, `remove_order_table`, `find_tables_by_order`, `save_item`, `find_item_by_id`, `update_item`, `find_items_by_order`, `save_item_modifier`, `find_modifiers_by_item` |
 | `IReservationRepository` | Reservaciones | `save`, `find_by_id`, `find_by_branch_and_date`, `find_confirmed_overlapping`, `update` |
 | `IAuditLogRepository` | Auditoría | `save`, `find_by_user`, `find_by_action` |
 | `ISystemConfigRepository` | Configuración | `find_by_key`, `find_all`, `save_or_update` |
@@ -757,7 +755,7 @@ graph TD
 | **Catálogo** | ✅ | ✅ | ✅ | ✅ | CRUD completo. Categorías (con description, sort_order), Productos (con toggle-availability, price update), Modificadores (con RESTRICT en delete). Prefijo `/catalog` |
 | **Tasas de Impuesto** | ✅ | ✅ | ✅ | ✅ | CRUD completo + set-default. Soft-delete. Guarda `is_default` swap atómico vía `clear_default()` |
 | **Mesas** | ✅ | ✅ | ✅ | ✅ | CRUD completo (sin delete). Status gestionado por Órdenes/Reservaciones. Prefijo `/tables` |
-| **Órdenes** | ❌ | ❌ | ❌ | ❌ | Pendiente |
+| **Órdenes** | ✅ | ✅ | ✅ | ✅ | Ciclo de vida completo + KDS + descuentos + asignación de mesas. Un solo `IOrderRepository` agrupa Order, OrderItem, OrderItemModifier y OrderTable. Prefijo `/orders` |
 | **Reservaciones** | ❌ | ❌ | ❌ | ❌ | Pendiente |
 | **Configuración** | ❌ | ❌ | ❌ | ❌ | Pendiente. Requerida por Reservaciones (`reservation_upcoming_threshold_minutes`) |
 
@@ -815,6 +813,43 @@ GET    /health                           → {"status": "ok"}
 
 ---
 
+### Sesión 3 — 2026-04-12
+
+**Alcance:** Módulo Órdenes (ciclo de vida completo + KDS + descuentos + mesas)
+
+**Archivos generados:** 16 archivos Python
+
+**Decisiones de diseño tomadas:**
+
+| Decisión | Detalle |
+|---|---|
+| Un único `IOrderRepository` para Order, OrderItem, OrderItemModifier y OrderTable | Evita la explosión de repositorios para entidades que solo existen en contexto de una orden; simplifica la capa de infraestructura sin violar Clean Architecture |
+| Resolución de tasa de impuesto en `AddOrderItemUseCase` | Orden: `product.tax_rate_id` explícita → fallback a `find_default()`. Si no existe ninguna default, se lanza `DefaultTaxRateNotFoundError` |
+| Snapshot de precios en `OrderItem` | `unit_price` = `product.base_price` y `applied_tax_rate` = `tax_rate.rate` al momento de agregar el ítem. Sin FK al catálogo vigente |
+| Snapshot de precio de modificadores en `OrderItemModifier` | `applied_extra_price` = `modifier.extra_price` al momento de agregar el ítem |
+| `recalculate_totals()` en entidad de dominio | La lógica `subtotal + taxes + tip - discount` vive en `Order`, no en el use case |
+| `CreateOrderUseCase` acepta `table_ids` opcionales | Puede crearse una orden sin mesas; las mesas se asignan/liberan después con `AssignTableUseCase` / `ReleaseTableUseCase` |
+| `apply_discount` protegido con `require_manager_or_above` | Único endpoint del módulo con restricción de rol explícita en la capa de presentación |
+
+**Endpoints disponibles:**
+
+```
+GET    /orders/                              → list[OrderResponse]      (cualquier rol autenticado)
+POST   /orders/                              → OrderResponse 201        (cualquier rol autenticado)
+GET    /orders/{id}                          → OrderResponse            (cualquier rol autenticado)
+POST   /orders/{id}/items                   → OrderItemResponse 201    (cualquier rol autenticado)
+PATCH  /orders/{id}/items/{item_id}         → OrderItemResponse        (cualquier rol autenticado)
+DELETE /orders/{id}/items/{item_id}         → 204                      (cualquier rol autenticado)
+PATCH  /orders/{id}/items/{item_id}/status  → OrderItemResponse        (cualquier rol autenticado)
+POST   /orders/{id}/pay                     → OrderResponse            (cualquier rol autenticado)
+POST   /orders/{id}/cancel                  → OrderResponse            (cualquier rol autenticado)
+POST   /orders/{id}/discount                → OrderResponse            (MANAGER o ADMIN)
+POST   /orders/{id}/tables                  → 204                      (cualquier rol autenticado)
+DELETE /orders/{id}/tables/{table_id}       → 204                      (cualquier rol autenticado)
+```
+
+---
+
 ### Pendiente para próximas sesiones
 
 **Bloque 2 — Catálogo + Tasas de Impuesto**
@@ -827,16 +862,11 @@ GET    /health                           → {"status": "ok"}
 - `Configuración` es prerequisito de Reservaciones (`reservation_upcoming_threshold_minutes`)
 - Mesas: sin `DeleteTableUseCase` si hay historial. Status lo gestionan Órdenes y Reservaciones
 
-**Bloque 4 — Órdenes**
-- Use case más complejo: snapshot de precios + resolución de tasa de impuesto en `AddOrderItemUseCase`
-- Recálculo de `total_amount` en cada modificación
-- KDS: `UpdateOrderItemStatusUseCase` con máquina de estados
-
-**Bloque 5 — Reservaciones**
+**Bloque 4 — Reservaciones**
 - Validación de solapamiento de franjas en dominio (no en DB)
 - `SeatReservationUseCase`: crea Order, enlaza `reservation.order_id`, actualiza estado de mesas
 - Umbral `reservation_upcoming_threshold_minutes` leído de `SYSTEM_CONFIG`
 
-**Bloque 6 — Endpoints de Auditoría + Seeds de roles**
+**Bloque 5 — Endpoints de Auditoría + Seeds de roles**
 - `GET /audit-logs?user_id=` y `GET /audit-logs?action=`
 - Script o migration para insertar roles fijos (`ADMIN`, `MANAGER`, `WAITER`) en tabla `role`
