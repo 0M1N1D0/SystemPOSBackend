@@ -8,6 +8,8 @@ from app.domain.exceptions import (
     InvalidTokenError,
     ModifierHasHistoryError,
     NotFoundError,
+    ReservationOverlapError,
+    ReservationTerminalStateError,
     UserInactiveError,
 )
 
@@ -50,5 +52,17 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ModifierHasHistoryError)
     async def modifier_has_history_handler(
         request: Request, exc: ModifierHasHistoryError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(ReservationTerminalStateError)
+    async def reservation_terminal_handler(
+        request: Request, exc: ReservationTerminalStateError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(ReservationOverlapError)
+    async def reservation_overlap_handler(
+        request: Request, exc: ReservationOverlapError
     ) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})

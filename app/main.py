@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.presentation.error_handlers import register_error_handlers
-from app.presentation.routers import auth, branches, users, tax_rates, catalog, tables, orders
+from app.presentation.routers import auth, branches, users, tax_rates, catalog, tables, orders, reservations
 
 app = FastAPI(title="SystemPOS API", version="0.1.0")
 
@@ -23,6 +23,7 @@ app.include_router(tax_rates.router, prefix="/tax-rates", tags=["tax-rates"])
 app.include_router(catalog.router, prefix="/catalog", tags=["catalog"])
 app.include_router(tables.router, prefix="/tables", tags=["tables"])
 app.include_router(orders.router, prefix="/orders", tags=["orders"])
+app.include_router(reservations.router, prefix="/reservations", tags=["reservations"])
 
 
 @app.get("/health")

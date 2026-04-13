@@ -60,6 +60,13 @@ from app.application.use_cases.orders.assign_table import AssignTableUseCase
 from app.application.use_cases.orders.release_table import ReleaseTableUseCase
 from app.application.use_cases.orders.get_order import GetOrderUseCase
 from app.application.use_cases.orders.list_open_orders import ListOpenOrdersUseCase
+from app.application.use_cases.reservations.create_reservation import CreateReservationUseCase
+from app.application.use_cases.reservations.update_reservation import UpdateReservationUseCase
+from app.application.use_cases.reservations.cancel_reservation import CancelReservationUseCase
+from app.application.use_cases.reservations.seat_reservation import SeatReservationUseCase
+from app.application.use_cases.reservations.mark_no_show import MarkNoShowUseCase
+from app.application.use_cases.reservations.get_reservation import GetReservationUseCase
+from app.application.use_cases.reservations.list_reservations_by_branch import ListReservationsByBranchUseCase
 from app.config import settings
 from app.domain.enums import RoleName
 from app.domain.services.i_token_service import TokenPayload
@@ -74,6 +81,8 @@ from app.infrastructure.repositories.user_repository import SqlUserRepository
 from app.infrastructure.repositories.tax_rate_repository import SqlTaxRateRepository
 from app.infrastructure.repositories.restaurant_table_repository import SqlRestaurantTableRepository
 from app.infrastructure.repositories.order_repository import SqlOrderRepository
+from app.infrastructure.repositories.reservation_repository import SqlReservationRepository
+from app.infrastructure.repositories.system_config_repository import SqlSystemConfigRepository
 from app.infrastructure.services.audit_log_service import AuditLogService
 from app.infrastructure.services.bcrypt_hasher import BcryptHasher
 from app.infrastructure.services.jwt_token_service import JwtTokenService
@@ -614,3 +623,85 @@ def get_list_open_orders_use_case(
     session: Session = Depends(get_session),
 ) -> ListOpenOrdersUseCase:
     return ListOpenOrdersUseCase(SqlOrderRepository(session))
+
+
+# --- Reservation use cases ---
+
+def get_create_reservation_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> CreateReservationUseCase:
+    return CreateReservationUseCase(
+        reservation_repo=SqlReservationRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        branch_repo=SqlBranchRepository(session),
+        user_repo=SqlUserRepository(session),
+        config_repo=SqlSystemConfigRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_update_reservation_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> UpdateReservationUseCase:
+    return UpdateReservationUseCase(
+        reservation_repo=SqlReservationRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        config_repo=SqlSystemConfigRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_cancel_reservation_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> CancelReservationUseCase:
+    return CancelReservationUseCase(
+        reservation_repo=SqlReservationRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_seat_reservation_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> SeatReservationUseCase:
+    return SeatReservationUseCase(
+        reservation_repo=SqlReservationRepository(session),
+        order_repo=SqlOrderRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_mark_no_show_use_case(
+    session: Session = Depends(get_session),
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> MarkNoShowUseCase:
+    return MarkNoShowUseCase(
+        reservation_repo=SqlReservationRepository(session),
+        table_repo=SqlRestaurantTableRepository(session),
+        audit_service=_audit_service(session),
+        actor_user_id=payload.user_id,
+    )
+
+
+def get_get_reservation_use_case(
+    session: Session = Depends(get_session),
+) -> GetReservationUseCase:
+    return GetReservationUseCase(SqlReservationRepository(session))
+
+
+def get_list_reservations_by_branch_use_case(
+    session: Session = Depends(get_session),
+) -> ListReservationsByBranchUseCase:
+    return ListReservationsByBranchUseCase(
+        reservation_repo=SqlReservationRepository(session),
+        branch_repo=SqlBranchRepository(session),
+    )

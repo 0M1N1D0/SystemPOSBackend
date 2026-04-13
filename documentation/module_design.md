@@ -756,8 +756,8 @@ graph TD
 | **Tasas de Impuesto** | ✅ | ✅ | ✅ | ✅ | CRUD completo + set-default. Soft-delete. Guarda `is_default` swap atómico vía `clear_default()` |
 | **Mesas** | ✅ | ✅ | ✅ | ✅ | CRUD completo (sin delete). Status gestionado por Órdenes/Reservaciones. Prefijo `/tables` |
 | **Órdenes** | ✅ | ✅ | ✅ | ✅ | Ciclo de vida completo + KDS + descuentos + asignación de mesas. Un solo `IOrderRepository` agrupa Order, OrderItem, OrderItemModifier y OrderTable. Prefijo `/orders` |
-| **Reservaciones** | ❌ | ❌ | ❌ | ❌ | Pendiente |
-| **Configuración** | ❌ | ❌ | ❌ | ❌ | Pendiente. Requerida por Reservaciones (`reservation_upcoming_threshold_minutes`) |
+| **Reservaciones** | ✅ | ✅ | ✅ | ✅ | Ciclo de vida completo. Validación de solapamiento con query `INTERVAL` en PostgreSQL. `SeatReservationUseCase` crea la orden. Umbral leído de `SYSTEM_CONFIG`. Prefijo `/reservations` |
+| **Configuración** | ✅ | ❌ | ✅ | ❌ | Entidad `SystemConfig` + `ISystemConfigRepository` + `SqlSystemConfigRepository` implementados como soporte para Reservaciones. Use cases y endpoints pendientes |
 
 ---
 
@@ -850,23 +850,42 @@ DELETE /orders/{id}/tables/{table_id}       → 204                      (cualqu
 
 ---
 
+### Sesión 4 — 2026-04-12
+
+**Alcance:** Módulo Reservaciones + soporte de infraestructura para Configuración del Sistema
+
+**Archivos generados:** 22 archivos Python (nuevos y modificados)
+
+**Decisiones de diseño tomadas:**
+
+| Decisión | Detalle |
+|---|---|
+| Transiciones de estado validadas en la entidad de dominio | `Reservation.transition_to()` lanza `ReservationTerminalStateError` si el estado actual es terminal (`SEATED`, `CANCELLED`, `NO_SHOW`). No hay constraint de DB |
+| Query de solapamiento con `INTERVAL` de PostgreSQL | `find_confirmed_overlapping` usa `func.cast(concat(duration_minutes, ' minutes'), INTERVAL)` para calcular `end_time` directamente en SQL sin traer filas a Python |
+| `SeatReservationUseCase` crea la `Order` directamente | Usa `IOrderRepository` — no llama a `CreateOrderUseCase`. Evita la dependencia cruzada entre capas de aplicación y mantiene cada use case autónomo |
+| `UpdateReservationUseCase` reasigna mesas en una sola operación | `remove_reservation_tables` + re-insert en lugar de diff incremental. Más simple sin pérdida de correctitud para el volumen esperado |
+| Umbral de `RESERVED` con fallback en código | Si `reservation_upcoming_threshold_minutes` no existe en `SYSTEM_CONFIG`, se usa 30 minutos por defecto en lugar de fallar |
+| `SystemConfig` implementado como soporte, sin endpoints propios aún | `SqlSystemConfigRepository` es consumido por `CreateReservationUseCase` y `UpdateReservationUseCase`. Los use cases y endpoints de gestión de configuración quedan para el siguiente bloque |
+| `POST /{id}/seat` devuelve `OrderResponse` | El endpoint reutiliza `_map_order` del router de órdenes vía import local para no duplicar lógica de serialización |
+
+**Endpoints disponibles:**
+
+```
+GET    /reservations/?branch_id=&date_from=&date_to=   → list[ReservationResponse]  (cualquier rol autenticado)
+POST   /reservations/                                   → ReservationResponse 201    (cualquier rol autenticado)
+GET    /reservations/{id}                               → ReservationResponse        (cualquier rol autenticado)
+PATCH  /reservations/{id}                               → 204                        (cualquier rol autenticado)
+POST   /reservations/{id}/seat                          → OrderResponse              (cualquier rol autenticado)
+POST   /reservations/{id}/cancel                        → 204                        (cualquier rol autenticado)
+POST   /reservations/{id}/no-show                       → 204                        (cualquier rol autenticado)
+```
+
+---
+
 ### Pendiente para próximas sesiones
 
-**Bloque 2 — Catálogo + Tasas de Impuesto**
-- Módulos: `Tasas de Impuesto` y `Catálogo` (Categorías, Productos, Modificadores)
-- Dependencia entre sí: Catálogo consume `ITaxRateRepository`
-- Incluye use case especial `SetDefaultTaxRateUseCase` (transacción: quitar flag anterior, asignar nuevo)
-- Incluye `DeleteModifierUseCase` con validación RESTRICT (excepción de dominio si hay historial)
-
-**Bloque 3 — Mesas + Configuración**
-- `Configuración` es prerequisito de Reservaciones (`reservation_upcoming_threshold_minutes`)
-- Mesas: sin `DeleteTableUseCase` si hay historial. Status lo gestionan Órdenes y Reservaciones
-
-**Bloque 4 — Reservaciones**
-- Validación de solapamiento de franjas en dominio (no en DB)
-- `SeatReservationUseCase`: crea Order, enlaza `reservation.order_id`, actualiza estado de mesas
-- Umbral `reservation_upcoming_threshold_minutes` leído de `SYSTEM_CONFIG`
-
-**Bloque 5 — Endpoints de Auditoría + Seeds de roles**
+**Bloque 5 — Configuración del Sistema + Auditoría (endpoints) + Seeds**
+- `GET/POST /config` — use cases `GetConfigValueUseCase`, `SetConfigValueUseCase`, `ListConfigUseCase`
 - `GET /audit-logs?user_id=` y `GET /audit-logs?action=`
-- Script o migration para insertar roles fijos (`ADMIN`, `MANAGER`, `WAITER`) en tabla `role`
+- Script o migración para insertar roles fijos (`ADMIN`, `MANAGER`, `WAITER`) en tabla `role`
+- Script o migración para insertar valores iniciales de `SYSTEM_CONFIG` (propinas sugeridas, datos fiscales, umbral de reservaciones)

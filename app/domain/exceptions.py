@@ -98,3 +98,21 @@ class InsufficientPermissionsError(DomainException):
 class DefaultTaxRateNotFoundError(DomainException):
     """Raised when no default tax rate is configured and a product has no explicit rate."""
     pass
+
+
+class ReservationNotFoundError(NotFoundError):
+    pass
+
+
+class ReservationTerminalStateError(DomainException):
+    """Raised when trying to transition a reservation from a terminal state."""
+    pass
+
+
+class ReservationOverlapError(DomainException):
+    """Raised when a new/updated reservation would overlap an existing CONFIRMED one."""
+    pass
+
+
+class SystemConfigNotFoundError(NotFoundError):
+    pass
