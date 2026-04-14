@@ -67,6 +67,9 @@ from app.application.use_cases.reservations.seat_reservation import SeatReservat
 from app.application.use_cases.reservations.mark_no_show import MarkNoShowUseCase
 from app.application.use_cases.reservations.get_reservation import GetReservationUseCase
 from app.application.use_cases.reservations.list_reservations_by_branch import ListReservationsByBranchUseCase
+from app.application.use_cases.config.get_config_value import GetConfigValueUseCase
+from app.application.use_cases.config.list_config import ListConfigUseCase
+from app.application.use_cases.config.set_config_value import SetConfigValueUseCase
 from app.config import settings
 from app.domain.enums import RoleName
 from app.domain.services.i_token_service import TokenPayload
@@ -705,3 +708,23 @@ def get_list_reservations_by_branch_use_case(
         reservation_repo=SqlReservationRepository(session),
         branch_repo=SqlBranchRepository(session),
     )
+
+
+# --- Config use cases ---
+
+def get_list_config_use_case(
+    session: Session = Depends(get_session),
+) -> ListConfigUseCase:
+    return ListConfigUseCase(SqlSystemConfigRepository(session))
+
+
+def get_get_config_value_use_case(
+    session: Session = Depends(get_session),
+) -> GetConfigValueUseCase:
+    return GetConfigValueUseCase(SqlSystemConfigRepository(session))
+
+
+def get_set_config_value_use_case(
+    session: Session = Depends(get_session),
+) -> SetConfigValueUseCase:
+    return SetConfigValueUseCase(SqlSystemConfigRepository(session))

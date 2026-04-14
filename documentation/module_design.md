@@ -757,7 +757,7 @@ graph TD
 | **Mesas** | ✅ | ✅ | ✅ | ✅ | CRUD completo (sin delete). Status gestionado por Órdenes/Reservaciones. Prefijo `/tables` |
 | **Órdenes** | ✅ | ✅ | ✅ | ✅ | Ciclo de vida completo + KDS + descuentos + asignación de mesas. Un solo `IOrderRepository` agrupa Order, OrderItem, OrderItemModifier y OrderTable. Prefijo `/orders` |
 | **Reservaciones** | ✅ | ✅ | ✅ | ✅ | Ciclo de vida completo. Validación de solapamiento con query `INTERVAL` en PostgreSQL. `SeatReservationUseCase` crea la orden. Umbral leído de `SYSTEM_CONFIG`. Prefijo `/reservations` |
-| **Configuración** | ✅ | ❌ | ✅ | ❌ | Entidad `SystemConfig` + `ISystemConfigRepository` + `SqlSystemConfigRepository` implementados como soporte para Reservaciones. Use cases y endpoints pendientes |
+| **Configuración** | ✅ | ✅ | ✅ | ✅ | CRUD de pares clave-valor. Solo accesible por ADMIN. `PUT /{key}` hace upsert. Prefijo `/config` |
 
 ---
 
@@ -882,10 +882,33 @@ POST   /reservations/{id}/no-show                       → 204                 
 
 ---
 
+### Sesión 5 — 2026-04-13
+
+**Alcance:** Módulo Configuración del Sistema (use cases + endpoints)
+
+**Archivos generados:** 6 archivos Python
+
+**Decisiones de diseño tomadas:**
+
+| Decisión | Detalle |
+|---|---|
+| `PUT /{key}` hace upsert | `save_or_update` en el repositorio ya existente. No se necesita un endpoint `POST` separado: si la clave existe se actualiza, si no se crea |
+| Solo ADMIN puede leer y escribir configuración | Todos los endpoints del módulo usan `require_admin`. La configuración contiene datos fiscales y umbrales operativos sensibles |
+| Sin auditoría en use cases de configuración | A diferencia de otros módulos operativos, los cambios de configuración no emiten `AuditLog`. Si se requiere trazabilidad futura, se puede agregar sin romper la interfaz |
+
+**Endpoints disponibles:**
+
+```
+GET    /config/          → list[SystemConfigResponse]  (ADMIN)
+GET    /config/{key}     → SystemConfigResponse        (ADMIN)
+PUT    /config/{key}     → SystemConfigResponse        (ADMIN)
+```
+
+---
+
 ### Pendiente para próximas sesiones
 
-**Bloque 5 — Configuración del Sistema + Auditoría (endpoints) + Seeds**
-- `GET/POST /config` — use cases `GetConfigValueUseCase`, `SetConfigValueUseCase`, `ListConfigUseCase`
+**Bloque 6 — Auditoría (endpoints) + Seeds**
 - `GET /audit-logs?user_id=` y `GET /audit-logs?action=`
 - Script o migración para insertar roles fijos (`ADMIN`, `MANAGER`, `WAITER`) en tabla `role`
 - Script o migración para insertar valores iniciales de `SYSTEM_CONFIG` (propinas sugeridas, datos fiscales, umbral de reservaciones)
