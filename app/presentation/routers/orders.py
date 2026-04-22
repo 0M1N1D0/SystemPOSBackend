@@ -245,7 +245,7 @@ def cancel_order(
     order_id: UUID,
     body: CancelOrderRequest,
     use_case: CancelOrderUseCase = Depends(get_cancel_order_use_case),
-    _: TokenPayload = Depends(get_current_token_payload),
+    _: TokenPayload = Depends(require_manager_or_above),
 ) -> OrderResponse:
     order = use_case.execute(
         CancelOrderInput(order_id=order_id, reason=body.reason)

@@ -35,6 +35,5 @@ def health() -> dict:
 # Para arrancar el servidor:
 #
 # source.venv / bin / activate
-# uvicorn
-# app.main: app - -reload
+# uvicorn app.main: app --reload
 # # Docs en: http://localhost:8000/docs

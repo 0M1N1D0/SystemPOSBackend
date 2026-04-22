@@ -618,6 +618,30 @@ flowchart TD
 - `details` se almacena como `JSONB` en PostgreSQL — permite queries como `details->>'order_id'`.
 - Los registros de auditoría son inmutables: no existe un `UpdateAuditLogUseCase` ni `DeleteAuditLogUseCase`.
 
+**Use cases de consulta:**
+
+| Use Case | Repositorio | Descripción |
+|---|---|---|
+| `ListAuditLogsByUserUseCase` | `IAuditLogRepository.find_by_user` | Devuelve todos los eventos emitidos por un usuario dado su `user_id` |
+| `ListAuditLogsByActionUseCase` | `IAuditLogRepository.find_by_action` | Devuelve todos los eventos de un tipo de acción (`AuditAction`) |
+
+**Endpoints planeados (Bloque 6):**
+
+```
+GET    /audit-logs?user_id={uuid}    → list[AuditLogResponse]   (ADMIN o MANAGER)
+GET    /audit-logs?action={action}   → list[AuditLogResponse]   (ADMIN o MANAGER)
+```
+
+**Schema de respuesta `AuditLogResponse`:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | UUID | Identificador del registro |
+| `user_id` | UUID | Usuario que realizó la acción |
+| `action` | AuditAction | Tipo de acción (enum) |
+| `details` | dict \| null | Datos adicionales en JSONB |
+| `created_at` | datetime | Timestamp del evento |
+
 ---
 
 ### 4.10 Módulo Configuración del Sistema
@@ -694,7 +718,7 @@ graph LR
 | Interfaz | Módulo | Métodos principales |
 |---|---|---|
 | `IBranchRepository` | Sucursales | `save`, `find_by_id`, `find_all`, `update` |
-| `IUserRepository` | Usuarios | `save`, `find_by_id`, `find_by_pin_hash`, `find_by_email`, `find_all_by_branch`, `update` |
+| `IUserRepository` | Usuarios | `save`, `find_by_id`, `find_by_email`, `find_all_by_branch`, `update` |
 | `IRoleRepository` | Usuarios | `find_by_name`, `find_all` |
 | `ITaxRateRepository` | Tasas | `save`, `find_by_id`, `find_default`, `find_all`, `update` |
 | `ICategoryRepository` | Catálogo | `save`, `find_by_id`, `find_all`, `update` |
@@ -744,20 +768,20 @@ graph TD
 
 ### Estado general por módulo
 
-| Módulo | Dominio | Aplicación | Infraestructura | Presentación | Notas |
-|---|---|---|---|---|---|
-| **Foundation** (enums, excepciones) | ✅ | — | — | — | `app/domain/enums.py`, `app/domain/exceptions.py` |
-| **Roles** | ✅ | — | ✅ | — | Solo lectura (catálogo fijo). Sin endpoints propios; se consume desde Usuarios |
-| **Sucursales** | ✅ | ✅ | ✅ | ✅ | CRUD completo. `DELETE` hace soft-delete (`is_active=False`) |
-| **Usuarios** | ✅ | ✅ | ✅ | ✅ | CRUD + change-pin + change-password. Soft-delete. Dual auth (PIN / email+password) |
-| **Auth** | ✅ | ✅ | ✅ | ✅ | JWT diferenciado: PIN → 480 min, Password → 60 min |
-| **Auditoría** | ✅ | — | ✅ | — | `IAuditLogService` inyectado en use cases. Sin endpoints de consulta aún |
-| **Catálogo** | ✅ | ✅ | ✅ | ✅ | CRUD completo. Categorías (con description, sort_order), Productos (con toggle-availability, price update), Modificadores (con RESTRICT en delete). Prefijo `/catalog` |
-| **Tasas de Impuesto** | ✅ | ✅ | ✅ | ✅ | CRUD completo + set-default. Soft-delete. Guarda `is_default` swap atómico vía `clear_default()` |
-| **Mesas** | ✅ | ✅ | ✅ | ✅ | CRUD completo (sin delete). Status gestionado por Órdenes/Reservaciones. Prefijo `/tables` |
-| **Órdenes** | ✅ | ✅ | ✅ | ✅ | Ciclo de vida completo + KDS + descuentos + asignación de mesas. Un solo `IOrderRepository` agrupa Order, OrderItem, OrderItemModifier y OrderTable. Prefijo `/orders` |
+| Módulo | Dominio | Aplicación | Infraestructura | Presentación | Notas                                                                                                                                                                                   |
+|---|---|---|---|---|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Foundation** (enums, excepciones) | ✅ | — | — | — | `app/domain/enums.py`, `app/domain/exceptions.py`                                                                                                                                       |
+| **Roles** | ✅ | — | ✅ | — | Solo lectura (catálogo fijo). Sin endpoints propios; se consume desde Usuarios                                                                                                          |
+| **Sucursales** | ✅ | ✅ | ✅ | ✅ | CRUD completo. `DELETE` hace soft-delete (`is_active=False`)                                                                                                                            |
+| **Usuarios** | ✅ | ✅ | ✅ | ✅ | CRUD + change-pin + change-password. Soft-delete. Dual auth (PIN / email+password)                                                                                                      |
+| **Auth** | ✅ | ✅ | ✅ | ✅ | JWT diferenciado: PIN → 480 min, Password → 60 min                                                                                                                                      |
+| **Auditoría** | ✅ | — | ✅ | — | `IAuditLogService` inyectado en use cases. Endpoints de consulta diseñados (Bloque 6)                                                                                                  |
+| **Catálogo** | ✅ | ✅ | ✅ | ✅ | CRUD completo. Categorías (con description, sort_order), Productos (con toggle-availability, price update), Modificadores (con RESTRICT en delete). Prefijo `/catalog`                  |
+| **Tasas de Impuesto** | ✅ | ✅ | ✅ | ✅ | CRUD completo + set-default. Soft-delete. Guarda `is_default` swap atómico vía `clear_default()`                                                                                        |
+| **Mesas** | ✅ | ✅ | ✅ | ✅ | CRUD completo (sin delete). Status gestionado por Órdenes/Reservaciones. Prefijo `/tables`                                                                                              |
+| **Órdenes** | ✅ | ✅ | ✅ | ✅ | Ciclo de vi,da completo + KDS + descuentos + asignación de mesas. Un solo `IOrderRepository` agrupa Order, OrderItem, OrderItemModifier y OrderTable. Prefijo `/orders`                 |
 | **Reservaciones** | ✅ | ✅ | ✅ | ✅ | Ciclo de vida completo. Validación de solapamiento con query `INTERVAL` en PostgreSQL. `SeatReservationUseCase` crea la orden. Umbral leído de `SYSTEM_CONFIG`. Prefijo `/reservations` |
-| **Configuración** | ✅ | ✅ | ✅ | ✅ | CRUD de pares clave-valor. Solo accesible por ADMIN. `PUT /{key}` hace upsert. Prefijo `/config` |
+| **Configuración** | ✅ | ✅ | ✅ | ✅ | CRUD de pares clave-valor. Solo accesible por ADMIN. `PUT /{key}` hace upsert. Prefijo `/config`                                                                                        |
 
 ---
 
@@ -906,9 +930,80 @@ PUT    /config/{key}     → SystemConfigResponse        (ADMIN)
 
 ---
 
-### Pendiente para próximas sesiones
+### Sesión 6 — (Pendiente de implementación)
 
-**Bloque 6 — Auditoría (endpoints) + Seeds**
-- `GET /audit-logs?user_id=` y `GET /audit-logs?action=`
-- Script o migración para insertar roles fijos (`ADMIN`, `MANAGER`, `WAITER`) en tabla `role`
-- Script o migración para insertar valores iniciales de `SYSTEM_CONFIG` (propinas sugeridas, datos fiscales, umbral de reservaciones)
+**Alcance:** Auditoría (endpoints de consulta) + Seeds de base de datos
+
+---
+
+#### 6a. Endpoints de Auditoría
+
+**Decisiones de diseño:**
+
+| Decisión | Detalle |
+|---|---|
+| Solo ADMIN y MANAGER pueden consultar auditoría | Los meseros no tienen acceso a los registros de auditoría del sistema |
+| Filtros por `user_id` o por `action` como query params | Dos endpoints separados para mantener cada use case con responsabilidad única |
+| Sin paginación en v1 | Los volúmenes operativos esperados no justifican paginación en esta etapa; se puede agregar después sin romper contratos |
+| `AuditLogResponse` no expone `details` completo al WAITER | No aplica — los WAITER no tienen acceso a estos endpoints |
+
+**Archivos a generar:**
+```
+app/application/use_cases/audit/list_audit_logs_by_user.py
+app/application/use_cases/audit/list_audit_logs_by_action.py
+app/presentation/routers/audit.py
+app/presentation/schemas/audit_log.py
+```
+
+**Endpoints:**
+```
+GET    /audit-logs?user_id={uuid}    → list[AuditLogResponse]   (ADMIN o MANAGER)
+GET    /audit-logs?action={action}   → list[AuditLogResponse]   (ADMIN o MANAGER)
+```
+
+Registrar el router en `app/main.py`:
+```python
+app.include_router(audit.router, prefix="/audit-logs", tags=["audit-logs"])
+```
+
+---
+
+#### 6b. Seeds de base de datos
+
+Los seeds son datos iniciales requeridos para que el sistema funcione correctamente desde el primer arranque. Se implementan como un script Python ejecutable.
+
+**Archivo a generar:** `scripts/seed.py`
+
+##### Roles (tabla `role`)
+
+Los roles son catálogo fijo. Deben existir antes de poder crear cualquier usuario.
+
+| `id` (UUID fijo) | `name` |
+|---|---|
+| `00000000-0000-0000-0000-000000000001` | `ADMIN` |
+| `00000000-0000-0000-0000-000000000002` | `MANAGER` |
+| `00000000-0000-0000-0000-000000000003` | `WAITER` |
+
+> Los UUIDs son fijos (no generados en tiempo de ejecución) para que el script sea idempotente: si ya existen, se hace `INSERT ... ON CONFLICT DO NOTHING`.
+
+##### SYSTEM_CONFIG (tabla `system_config`)
+
+Valores operativos iniciales requeridos por el sistema. Todos son sobreescribibles vía `PUT /config/{key}` (ADMIN).
+
+| `key` | `value` | `description` |
+|---|---|---|
+| `suggested_tip_1` | `10` | Propina sugerida 1 (%) |
+| `suggested_tip_2` | `15` | Propina sugerida 2 (%) |
+| `suggested_tip_3` | `20` | Propina sugerida 3 (%) |
+| `business_name` | `Mi Restaurante` | Nombre del negocio para impresión de tickets |
+| `business_rfc` | `` | RFC fiscal (vacío hasta configurar) |
+| `business_address` | `` | Dirección fiscal (vacío hasta configurar) |
+| `reservation_upcoming_threshold_minutes` | `30` | Minutos antes de la reserva para cambiar mesa a `RESERVED` |
+
+> El script usa `INSERT ... ON CONFLICT (key) DO NOTHING` para ser idempotente.
+
+**Ejecución:**
+```bash
+source .venv/bin/activate
+python scripts/seed.py
+```
